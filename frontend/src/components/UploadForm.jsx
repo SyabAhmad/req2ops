@@ -1,70 +1,157 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 
-const ACCEPT_TYPES = import.meta.env.VITE_UPLOAD_ACCEPT || '.pdf,.txt'
+const ACCEPT_TYPES = import.meta.env.VITE_UPLOAD_ACCEPT || '.pdf,.txt,.mp3,.wav,.m4a,.png,.jpg,.jpeg'
 const PLACEHOLDER_TEXT = import.meta.env.VITE_UPLOAD_PLACEHOLDER || 'Paste client requirements, email, WhatsApp notes here...'
 const BTN_LABEL = import.meta.env.VITE_UPLOAD_BTN_LABEL || 'Generate Execution Plan'
-const UPLOAD_BTN_LABEL = import.meta.env.VITE_UPLOAD_FILE_BTN || 'Upload PDF'
+
+const FILE_ICONS = {
+  pdf: '📄',
+  audio: '🎤',
+  image: '🖼️',
+  text: '📝',
+}
+
+function getFileType(name) {
+  const ext = name.split('.').pop().toLowerCase()
+  if (['pdf'].includes(ext)) return 'pdf'
+  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'wma'].includes(ext)) return 'audio'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image'
+  if (['txt', 'md', 'doc', 'docx', 'csv', 'json', 'xml'].includes(ext)) return 'text'
+  return 'text'
+}
+
+const FILE_LABELS = {
+  pdf: 'Document',
+  audio: 'Audio',
+  image: 'Image',
+  text: 'Text',
+}
 
 export default function UploadForm({ onSubmit, loading }) {
   const [text, setText] = useState('')
-  const [file, setFile] = useState(null)
+  const [files, setFiles] = useState([])
+  const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
+
+  const addFiles = useCallback((incoming) => {
+    const list = Array.from(incoming)
+    setFiles(prev => {
+      const names = new Set(prev.map(f => f.name))
+      const unique = list.filter(f => !names.has(f.name))
+      return [...prev, ...unique]
+    })
+  }, [])
+
+  const removeFile = useCallback((name) => {
+    setFiles(prev => prev.filter(f => f.name !== name))
+  }, [])
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files)
+  }, [addFiles])
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    setDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false)
+  }, [])
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!text && !file) return
-    onSubmit({ text, file })
+    if (!text && !files.length) return
+    onSubmit({ text, files })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Requirements
+          Paste requirements
         </label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={8}
+          rows={5}
           className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           placeholder={PLACEHOLDER_TEXT}
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs text-gray-400">or</span>
-        <button
-          type="button"
+      <div className="relative">
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           onClick={() => fileRef.current?.click()}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-900"
+          className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+            dragOver
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'
+          }`}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-          </svg>
-          {file ? file.name : UPLOAD_BTN_LABEL}
-        </button>
+          <div className="flex justify-center gap-3 mb-4">
+            <span className="text-2xl">📄</span>
+            <span className="text-2xl">🎤</span>
+            <span className="text-2xl">🖼️</span>
+          </div>
+          <p className="text-sm font-medium text-gray-700">
+            Drop files here or click to browse
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            PDF, images, audio recordings, text files — upload everything at once
+          </p>
+        </div>
         <input
           ref={fileRef}
           type="file"
+          multiple
           accept={ACCEPT_TYPES}
           className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          onChange={(e) => { if (e.target.files.length) addFiles(e.target.files); e.target.value = '' }}
         />
-        {file && (
-          <button
-            type="button"
-            onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }}
-            className="text-xs text-gray-400 underline transition-colors hover:text-red-500"
-          >
-            Remove
-          </button>
-        )}
       </div>
+
+      {files.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {files.length} file{files.length > 1 ? 's' : ''} attached
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {files.map(file => {
+              const type = getFileType(file.name)
+              return (
+                <div
+                  key={file.name}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm"
+                >
+                  <span>{FILE_ICONS[type]}</span>
+                  <span className="text-gray-700 max-w-[160px] truncate">{file.name}</span>
+                  <span className="text-[10px] font-medium uppercase text-gray-400">{FILE_LABELS[type]}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeFile(file.name) }}
+                    className="ml-1 text-gray-300 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <button
         type="submit"
-        disabled={(!text && !file) || loading}
-        className="inline-flex w-full items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={(!text && !files.length) || loading}
+        className="inline-flex w-full items-center justify-center rounded-lg bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {loading ? (
           <span className="flex items-center gap-2">

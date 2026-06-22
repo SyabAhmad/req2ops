@@ -4,10 +4,14 @@ const PROJECTS_PATH = import.meta.env.VITE_API_PROJECTS_PATH || '/projects'
 const UPLOAD_PATH = import.meta.env.VITE_API_UPLOAD_PATH || '/upload'
 const WORKSPACE_PATH = import.meta.env.VITE_API_WORKSPACE_PATH || '/workspace'
 
-export async function uploadRequirement({ text, file }) {
+export async function uploadRequirement({ text, files }) {
   const form = new FormData()
   if (text) form.append('text', text)
-  if (file) form.append('file', file)
+  if (files?.length) {
+    for (const file of files) {
+      form.append('files', file)
+    }
+  }
 
   const res = await fetch(`${API_BASE}${API_PREFIX}${PROJECTS_PATH}${UPLOAD_PATH}`, {
     method: 'POST',

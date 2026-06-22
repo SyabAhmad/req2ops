@@ -22,11 +22,11 @@ export default function App() {
   const [workspaceData, setWorkspaceData] = useState(null)
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async ({ text, file }) => {
+  const handleSubmit = async ({ text, files }) => {
     setLoading(true)
     setPage('processing')
     try {
-      const result = await uploadRequirement({ text, file })
+      const result = await uploadRequirement({ text, files })
       setWorkspaceData(result)
       setPage('workspace')
     } catch {
