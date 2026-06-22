@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import Layout from './components/Layout.jsx'
 import PageTransition from './components/PageTransition.jsx'
@@ -7,7 +7,6 @@ import HowItWorksPage from './pages/HowItWorksPage.jsx'
 import UploadPage from './pages/UploadPage.jsx'
 import ProcessingPage from './pages/ProcessingPage.jsx'
 import WorkspacePage from './pages/WorkspacePage.jsx'
-import { uploadRequirement } from './api/client.js'
 
 const PAGES = {
   home: HomePage,
@@ -21,26 +20,32 @@ export default function App() {
   const [page, setPage] = useState('home')
   const [workspaceData, setWorkspaceData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const submitRef = useRef({ text: '', files: [] })
 
-  const handleSubmit = async ({ text, files }) => {
-    setLoading(true)
+  const handleSubmit = ({ text, files }) => {
+    submitRef.current = { text, files }
     setPage('processing')
-    try {
-      const result = await uploadRequirement({ text, files })
-      setWorkspaceData(result)
-      setPage('workspace')
-    } catch {
-      setPage('upload')
-    } finally {
-      setLoading(false)
-    }
+  }
+
+  const handleProcessingComplete = (data) => {
+    setWorkspaceData(data)
+    setPage('workspace')
+  }
+
+  const handleProcessingError = () => {
+    setPage('upload')
   }
 
   const pageProps = {
     home: { onNavigate: setPage },
     'how-it-works': {},
     upload: { onSubmit: handleSubmit, loading },
-    processing: {},
+    processing: {
+      input: submitRef.current.text,
+      files: submitRef.current.files,
+      onComplete: handleProcessingComplete,
+      onError: handleProcessingError,
+    },
     workspace: { data: workspaceData, onHome: () => setPage('home') },
   }
 

@@ -1,9 +1,9 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 
 
 class UploadResponse(BaseModel):
     project_id: Optional[str] = None
     message: str
-    raw_length: int = 0
+    workspace: Optional[dict[str, Any]] = None
     error: Optional[str] = None

@@ -28,15 +28,12 @@ class Settings(BaseSettings):
     # LLM
     openai_api_key: str = ""
     groq_api_key: str = ""
-    llm_model: str = "gpt-4o-mini"
-    llm_provider: str = "openai"
+    llm_model: str = "llama-3.3-70b-versatile"
+    llm_provider: str = "groq"
     llm_temperature: float = 0.3
 
-    # Pipeline — comma-separated step names in execution order
-    pipeline_steps: str = "understanding,dev_breakdown,design_breakdown,task_graph,control_layer"
-
     # Upload
-    allowed_file_extensions: str = ".pdf,.txt"
+    allowed_file_extensions: str = ".pdf,.txt,.mp3,.wav,.m4a,.png,.jpg,.jpeg,.gif,.webp"
     max_file_size_mb: int = 10
 
     model_config = {"env_file_encoding": "utf-8"}

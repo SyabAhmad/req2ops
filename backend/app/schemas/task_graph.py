@@ -1,16 +1,10 @@
 from pydantic import BaseModel
-from typing import List, Optional
-
-
-class Task(BaseModel):
-    id: str
-    title: str
-    description: str
-    priority: str  # P0 / P1 / P2
-    estimated_effort: str
-    dependencies: List[str]
-    assignee_role: Optional[str] = None
+from typing import Any, Optional
 
 
 class TaskGraph(BaseModel):
-    tasks: List[Task]
+    project_phases: Optional[Any] = None
+    milestones: Optional[Any] = None
+    tasks: Optional[Any] = None
+    critical_path: Optional[Any] = None
+    parallel_tracks: Optional[Any] = None

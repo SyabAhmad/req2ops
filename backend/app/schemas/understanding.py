@@ -1,10 +1,16 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, Optional
 
 
 class Understanding(BaseModel):
-    project_goal: str
-    implicit_requirements: List[str]
-    missing_information: List[str]
-    assumptions: List[str]
-    risk_areas: List[str]
+    project_goal: Optional[Any] = None
+    problem_statement: Optional[Any] = None
+    target_users: Optional[Any] = None
+    key_stakeholders: Optional[Any] = None
+    implicit_requirements: Optional[Any] = None
+    missing_information: Optional[Any] = None
+    assumptions: Optional[Any] = None
+    risk_areas: Optional[Any] = None
+    business_constraints: Optional[Any] = None
+    success_criteria: Optional[Any] = None
+    scope_boundaries: Optional[Any] = None
