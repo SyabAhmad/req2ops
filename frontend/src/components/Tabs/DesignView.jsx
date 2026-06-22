@@ -1,4 +1,4 @@
-import { txt, map, List, Section } from '../../utils/safe'
+import { txt, map, List, Section, ComponentStates, FlowSteps, ObjectList } from '../../utils/safe'
 
 export default function DesignView({ data }) {
   if (!data) return <EmptyState />
@@ -56,11 +56,7 @@ export default function DesignView({ data }) {
             <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
               <p className="text-sm font-medium text-gray-900">{txt(c.name)}</p>
               {c.usage && <p className="text-xs text-gray-500">{txt(c.usage)}</p>}
-              {map(c.states, (st, j) => (
-                <div key={j} className="mt-1 flex flex-wrap gap-1">
-                  <span className="text-[10px] bg-white border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded">{txt(st)}</span>
-                </div>
-              ))}
+              <ComponentStates items={c.states} />
             </div>
           ))}
         </div>
@@ -72,14 +68,7 @@ export default function DesignView({ data }) {
             <div key={i} className="rounded-lg border border-gray-200 bg-white px-4 py-3">
               <p className="text-sm font-medium text-gray-900">{txt(f.flow_name)}</p>
               {f.entry_point && <p className="text-xs text-gray-400 mt-0.5">Entry: {txt(f.entry_point)}</p>}
-              {map(f.steps, (step, j) => (
-                <ol key={j} className="mt-2 space-y-0.5">
-                  <li className="flex items-start gap-2 text-xs text-gray-600">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-400">{j + 1}</span>
-                    {txt(step)}
-                  </li>
-                </ol>
-              ))}
+              <FlowSteps items={f.steps} />
               <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
                 {f.success_path && <span className="text-green-600 font-medium">Success: {txt(f.success_path)}</span>}
                 {f.error_path && <span className="text-red-500 font-medium">Error: {txt(f.error_path)}</span>}
@@ -94,11 +83,11 @@ export default function DesignView({ data }) {
       </Section>
 
       <Section title="Responsive Breakpoints">
-        <List items={data.responsive_breakpoints} />
+        <ObjectList items={data.responsive_breakpoints} keyField="breakpoint" fields={['description']} />
       </Section>
 
       <Section title="Accessibility Requirements">
-        <List items={data.accessibility_requirements} />
+        <ObjectList items={data.accessibility_requirements} keyField="requirement" fields={['level', 'enabled']} />
       </Section>
 
       <Section title="Animation & Motion">
