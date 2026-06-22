@@ -52,6 +52,10 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# --- Internal / local-only docs ---
+PLAN.md
+AI_CONTEXT.md
+
 # --- Misc ---
 *.local
 *.suo
