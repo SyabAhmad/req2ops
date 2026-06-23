@@ -41,9 +41,24 @@ body {
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
 }
 
+#pdf-all-plans {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 210mm;
+  background: #fff;
+  padding: 20mm;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #111;
+}
+
 @media print {
-  body > *:not(#pdf-all-plans) {
-    display: none !important;
+  * {
+    visibility: hidden !important;
+  }
+  #pdf-all-plans,
+  #pdf-all-plans * {
+    visibility: visible !important;
   }
   #pdf-all-plans {
     position: fixed !important;
