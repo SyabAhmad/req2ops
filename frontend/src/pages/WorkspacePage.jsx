@@ -186,7 +186,7 @@ export default function WorkspacePage({ data, onHome }) {
           </div>
         ))}
         <div className="pdf-plan-section" style={{ marginTop: '32px', paddingTop: '12px', borderTop: '1px solid #e5e7eb', fontSize: '10px', color: '#9ca3af', textAlign: 'center' }}>
-          Req2Ops — Turn messy client requirements into structured execution plans &middot; req2ops.vercel.app
+          Req2Ops — Turn messy client requirements into structured execution plans &middot; Developed by <a href="https://syab.vercel.app" style={{ textDecoration: 'underline' }}>Syed Syab</a> &middot; A product of <a href="https://syab.vercel.app/mentee" style={{ textDecoration: 'underline' }}>Mentee</a>
         </div>
       </div>
     </div>
