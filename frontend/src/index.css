@@ -28,6 +28,11 @@ body {
   to { transform: translateX(0); }
 }
 
+@keyframes floatFade {
+  0%, 100% { opacity: 0.4; transform: translateY(6px); }
+  50% { opacity: 0.8; transform: translateY(-6px); }
+}
+
 .animate-marquee {
   animation: marquee 40s linear infinite;
 }
@@ -39,6 +44,19 @@ body {
 .marquee-fade {
   mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+
+.agent-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.agent-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agent-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
 }
 
 #pdf-all-plans {

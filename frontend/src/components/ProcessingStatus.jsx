@@ -67,24 +67,37 @@ export default function ProcessingStatus({ input, files, onComplete, onError }) 
 
   return (
     <div className="w-full max-w-lg mx-auto">
-      <div className="mb-8 text-center">
-        <h2 className="text-xl font-bold text-gray-900">Processing requirements</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {doneCount} of {agents.length} agents completed
-        </p>
-      </div>
+      <div className="relative rounded-2xl bg-white border border-gray-200 shadow-[0_0_60px_-12px_rgba(0,0,0,0.12)] px-6 py-8">
+        {/* Glow border effect */}
+        <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-gray-200/60 via-transparent to-gray-200/60 -z-10 blur-sm" />
 
-      <div className="space-y-2">
-        {agents.map(agent => (
-          <AgentRow key={agent.id} agent={agent} isActive={activeAgent?.id === agent.id} />
-        ))}
-      </div>
+        <div className="mb-8 text-center">
+          <h2 className="text-xl font-bold text-gray-900">Processing requirements</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {doneCount} of {agents.length} agents completed
+          </p>
+        </div>
 
-      {activeAgent && (
-        <p className="mt-6 text-center text-sm text-gray-400 animate-pulse">
-          {activeAgent.role} is working...
-        </p>
-      )}
+        <div className="relative">
+          <div className="agent-scroll max-h-[240px] overflow-y-auto space-y-2 px-1">
+            {agents.map(agent => (
+              <AgentRow key={agent.id} agent={agent} isActive={activeAgent?.id === agent.id} />
+            ))}
+          </div>
+          {agents.length > 4 && (
+            <>
+              <div className="pointer-events-none sticky top-0 h-4 bg-gradient-to-b from-white to-transparent" />
+              <div className="pointer-events-none sticky bottom-0 -mt-4 h-4 bg-gradient-to-t from-white to-transparent" />
+            </>
+          )}
+        </div>
+
+        {activeAgent && (
+          <p className="mt-6 text-center text-sm text-gray-400 animate-pulse">
+            {activeAgent.role} is working...
+          </p>
+        )}
+      </div>
     </div>
   )
 }
