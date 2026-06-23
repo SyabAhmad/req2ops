@@ -114,13 +114,8 @@ export default function WorkspacePage({ data, onHome }) {
 
   async function handleDownloadPDF() {
     setDownloading(true)
-    try {
-      await downloadPlanPDF('pdf-all-plans', 'execution-plan.pdf')
-    } catch (e) {
-      console.error('PDF download failed:', e)
-    } finally {
-      setDownloading(false)
-    }
+    downloadPlanPDF()
+    setTimeout(() => setDownloading(false), 500)
   }
 
   return (

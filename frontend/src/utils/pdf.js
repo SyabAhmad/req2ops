@@ -1,35 +1,23 @@
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
-
-export async function downloadPlanPDF(elementId, filename = 'execution-plan.pdf') {
-  const el = document.getElementById(elementId)
+export function downloadPlanPDF() {
+  const el = document.getElementById('pdf-all-plans')
   if (!el) return
 
-  const canvas = await html2canvas(el, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-  })
+  el.style.position = 'fixed'
+  el.style.left = '0'
+  el.style.top = '0'
+  el.style.zIndex = '99999'
+  el.style.width = '210mm'
+  el.style.background = '#fff'
+  el.style.padding = '20mm'
 
-  const imgWidth = 210
-  const pageHeight = 297
-  const imgHeight = (canvas.height * imgWidth) / canvas.width
-  const imgData = canvas.toDataURL('image/png')
+  document.body.classList.add('printing-pdf')
 
-  const pdf = new jsPDF('p', 'mm', 'a4')
-  let heightLeft = imgHeight
-  let position = 0
-
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-  heightLeft -= pageHeight
-
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight
-    pdf.addPage()
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-  }
-
-  pdf.save(filename)
+  setTimeout(() => {
+    window.print()
+    document.body.classList.remove('printing-pdf')
+    el.style.position = 'absolute'
+    el.style.left = '-9999px'
+    el.style.top = '0'
+    el.style.zIndex = ''
+  }, 200)
 }
