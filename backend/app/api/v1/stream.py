@@ -1,6 +1,7 @@
 import json
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from app.services.parser import ParserService
 from app.engine.crew.graph import stream_pipeline, AGENTS_META
 
@@ -8,6 +9,16 @@ router = APIRouter()
 
 AGENT_LABELS = {a[0]: a[1] for a in AGENTS_META}
 AGENT_ROLES = {a[0]: a[2] for a in AGENTS_META}
+
+
+def _safe(obj):
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+    if isinstance(obj, dict):
+        return {k: _safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_safe(v) for v in obj]
+    return obj
 
 
 async def _parse_input(text: str | None, files: list[UploadFile] | None) -> str:
@@ -35,7 +46,7 @@ async def upload_stream(
     async def event_stream():
         yield f"event: meta\ndata: {json.dumps({'agents': AGENTS_META})}\n\n"
         async for event in stream_pipeline(combined):
-            yield f"event: {event['event']}\ndata: {json.dumps(event)}\n\n"
+            yield f"event: {event['event']}\ndata: {json.dumps(_safe(event))}\n\n"
 
     return StreamingResponse(
         event_stream(),

@@ -6,17 +6,8 @@ const DEFAULT_TABS = [
   { key: 'actions', label: 'Next Actions' },
 ]
 
-function parseTabs(raw) {
-  if (!raw) return DEFAULT_TABS
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return DEFAULT_TABS
-  }
-}
-
-export default function TabBar({ active, onChange }) {
-  const tabs = parseTabs(import.meta.env.VITE_WORKSPACE_TABS)
+export default function TabBar({ tabs: tabsProp, active, onChange }) {
+  const tabs = tabsProp || DEFAULT_TABS
 
   return (
     <div className="flex gap-0 border-b border-gray-200 overflow-x-auto">

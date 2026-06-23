@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, AsyncGenerator, List
+from typing import Optional, TypedDict, AsyncGenerator, List, Dict, Any, Union
 from langgraph.graph import StateGraph
 from app.engine.crew.agents import build_llm
 from app.schemas.understanding import Understanding
@@ -6,7 +6,66 @@ from app.schemas.dev_plan import DevPlan
 from app.schemas.design_plan import DesignPlan
 from app.schemas.task_graph import TaskGraph
 from app.schemas.control_layer import ControlLayer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+PLAN_TYPES = [
+    ("understanding", "Understanding Requirements", "Senior Requirements Analyst"),
+    ("classifier", "Plan Classifier", "Planning Classifier"),
+    ("dev_architecture", "Dev Architecture", "Senior Software Architect"),
+    ("api_design", "API Design", "API Architect"),
+    ("database_design", "Database Design", "Database Architect"),
+    ("infrastructure", "Infrastructure Plan", "DevOps Engineer"),
+    ("security_plan", "Security Plan", "Security Engineer"),
+    ("testing_strategy", "Testing Strategy", "QA Lead"),
+    ("monitoring_plan", "Monitoring & Observability", "SRE"),
+    ("performance_plan", "Performance Engineering", "Performance Engineer"),
+    ("data_architecture", "Data Architecture", "Data Architect"),
+    ("integration_plan", "Integration Plan", "Integration Architect"),
+    ("deployment_plan", "Deployment Strategy", "Release Engineer"),
+    ("ci_cd_plan", "CI/CD Pipeline", "DevOps Engineer"),
+    ("disaster_recovery", "Disaster Recovery", "SRE"),
+    ("design_system", "Design System", "Design System Lead"),
+    ("user_research", "User Research Plan", "UX Researcher"),
+    ("accessibility_plan", "Accessibility Plan", "Accessibility Specialist"),
+    ("mobile_strategy", "Mobile Strategy", "Mobile Architect"),
+    ("frontend_architecture", "Frontend Architecture", "Frontend Architect"),
+    ("component_library", "Component Library", "Frontend Architect"),
+    ("state_management", "State Management Plan", "Frontend Architect"),
+    ("api_gateway", "API Gateway Design", "Platform Architect"),
+    ("auth_design", "Authentication & Authorization", "Security Architect"),
+    ("rate_limiting", "Rate Limiting & Throttling", "Platform Engineer"),
+    ("cache_strategy", "Caching Strategy", "Backend Architect"),
+    ("message_queue", "Message Queue Design", "Backend Architect"),
+    ("event_driven", "Event-Driven Architecture", "Backend Architect"),
+    ("microservices", "Microservices Design", "Software Architect"),
+    ("serverless", "Serverless Architecture", "Cloud Architect"),
+    ("kubernetes", "Kubernetes Architecture", "Platform Engineer"),
+    ("service_mesh", "Service Mesh", "Platform Engineer"),
+    ("observability", "Full-Stack Observability", "SRE"),
+    ("logging_plan", "Logging Strategy", "SRE"),
+    ("tracing_plan", "Distributed Tracing", "SRE"),
+    ("alerting_plan", "Alerting & On-Call", "SRE"),
+    ("cost_optimization", "Cost Optimization", "FinOps Engineer"),
+    ("capacity_plan", "Capacity Planning", "Platform Engineer"),
+    ("chaos_engineering", "Chaos Engineering", "SRE"),
+    ("compliance_plan", "Compliance & Audit", "Security Engineer"),
+    ("privacy_plan", "Data Privacy & GDPR", "Privacy Engineer"),
+    ("ml_ops", "MLOps Pipeline", "ML Engineer"),
+    ("data_pipeline", "Data Pipeline", "Data Engineer"),
+    ("analytics_plan", "Analytics & BI", "Data Analyst"),
+    ("search_design", "Search Architecture", "Search Engineer"),
+    ("realtime_plan", "Real-time Features", "Backend Architect"),
+    ("websocket_plan", "WebSocket Architecture", "Backend Architect"),
+    ("graphql_design", "GraphQL Schema Design", "API Architect"),
+    ("grpc_design", "gRPC Service Design", "API Architect"),
+    ("webhook_design", "Webhook System", "Integration Engineer"),
+    ("plugin_system", "Plugin/Extension System", "Platform Architect"),
+    ("multi_tenant", "Multi-tenancy Design", "SaaS Architect"),
+    ("feature_flags", "Feature Flag System", "Platform Engineer"),
+    ("ab_testing", "A/B Testing Framework", "Data Scientist"),
+    ("task_breakdown", "Task Breakdown", "Technical Project Manager"),
+    ("delivery_review", "Delivery Review", "Delivery Lead"),
+]
 
 AGENTS_META = [
     ("understanding", "Understanding Requirements", "Senior Requirements Analyst"),
@@ -141,21 +200,80 @@ GOOD output (specific, actionable):
 
 Produce EXCELLENT output. Be thorough. A good delivery review should uncover issues that would otherwise surface mid-sprint. Output must be a single valid json object (NOT an array)."""
 
-CLASSIFIER_PROMPT = """You are a Planning Classifier. Based on the requirements analysis, determine which downstream plans are needed.
+CLASSIFIER_PROMPT = """You are a Planning Classifier. Based on the requirements analysis, select which specialized plans to generate from the available catalog.
 
-RULES:
-- needs_dev: true if the project requires software architecture, APIs, database, backend services, infrastructure
-- needs_design: true if the project requires UI/UX design, screens, user flows, design system, accessibility
-- needs_tasks: true if the project needs a task breakdown with phases, milestones, detailed tasks (usually if dev OR design is true)
-- needs_control: true if the project needs risk analysis, decisions log, next actions, delivery review (usually if tasks is true)
+AVAILABLE PLAN TYPES:
+- understanding: Understanding Requirements (always runs first)
+- classifier: Plan Classifier (always runs second)
+- dev_architecture: Dev Architecture — system architecture, tech stack, data flows, deployment
+- api_design: API Design — REST/GraphQL/gRPC endpoints, contracts, versioning
+- database_design: Database Design — schema, indexes, migrations, scaling
+- infrastructure: Infrastructure Plan — cloud, networking, IaC, environments
+- security_plan: Security Plan — auth, encryption, compliance, threat model
+- testing_strategy: Testing Strategy — unit, integration, e2e, performance, tools
+- monitoring_plan: Monitoring & Observability — metrics, logs, traces, dashboards
+- performance_plan: Performance Engineering — latency, throughput, profiling, optimization
+- data_architecture: Data Architecture — pipelines, warehousing, modeling, governance
+- integration_plan: Integration Plan — webhooks, ETL, message queues, APIs
+- deployment_plan: Deployment Strategy — blue/green, canary, rollback, regions
+- ci_cd_plan: CI/CD Pipeline — build, test, deploy, promotion gates
+- disaster_recovery: Disaster Recovery — RPO/RTO, backups, failover, drills
+- design_system: Design System — tokens, components, patterns, documentation
+- user_research: User Research Plan — interviews, usability, personas, journeys
+- accessibility_plan: Accessibility Plan — WCAG, testing, remediation, audit
+- mobile_strategy: Mobile Strategy — native, cross-platform, offline, push
+- frontend_architecture: Frontend Architecture — framework, routing, state, build
+- component_library: Component Library — atoms, molecules, organisms, storybook
+- state_management: State Management Plan — client/server state, caching, sync
+- api_gateway: API Gateway Design — routing, auth, rate limit, transformation
+- auth_design: Authentication & Authorization — OAuth, OIDC, RBAC, sessions
+- rate_limiting: Rate Limiting & Throttling — algorithms, tiers, quotas
+- cache_strategy: Caching Strategy — layers, invalidation, warming, CDN
+- message_queue: Message Queue Design — topics, partitions, DLQ, ordering
+- event_driven: Event-Driven Architecture — events, sagas, choreography
+- microservices: Microservices Design — boundaries, contracts, resilience
+- serverless: Serverless Architecture — functions, triggers, cold starts
+- kubernetes: Kubernetes Architecture — clusters, operators, GitOps
+- service_mesh: Service Mesh — mTLS, traffic, resilience, observability
+- observability: Full-Stack Observability — SLIs/SLOs, dashboards, alerting
+- logging_plan: Logging Strategy — structured logs, correlation, retention
+- tracing_plan: Distributed Tracing — spans, sampling, instrumentation
+- alerting_plan: Alerting & On-Call — routing, escalation, runbooks
+- cost_optimization: Cost Optimization — rightsizing, commitments, anomaly detection
+- capacity_plan: Capacity Planning — forecasting, scaling, quotas
+- chaos_engineering: Chaos Engineering — experiments, blast radius, automation
+- compliance_plan: Compliance & Audit — SOC2, HIPAA, evidence, controls
+- privacy_plan: Data Privacy & GDPR — consent, DSR, encryption, retention
+- ml_ops: MLOps Pipeline — training, serving, monitoring, drift
+- data_pipeline: Data Pipeline — ingestion, transformation, quality, orchestration
+- analytics_plan: Analytics & BI — events, warehouse, dashboards, self-serve
+- search_design: Search Architecture — indexing, ranking, facets, relevance
+- realtime_plan: Real-time Features — WebSockets, SSE, presence, sync
+- websocket_plan: WebSocket Architecture — connections, rooms, scaling
+- graphql_design: GraphQL Schema Design — types, resolvers, federation
+- grpc_design: gRPC Service Design — protobuf, services, streaming
+- webhook_design: Webhook System — delivery, retry, verification, UI
+- plugin_system: Plugin/Extension System — SDK, sandbox, marketplace
+- multi_tenant: Multi-tenancy Design — isolation, billing, onboarding
+- feature_flags: Feature Flag System — targeting, rollout, kill switches
+- ab_testing: A/B Testing Framework — assignment, stats, analysis
+- task_breakdown: Task Breakdown — phases, milestones, tasks, dependencies
+- delivery_review: Delivery Review — risks, decisions, actions, blockers
+
+RULES FOR SELECTION:
+- NEVER return an empty selected_plans array. Always select at least dev_architecture, task_breakdown, and delivery_review as defaults.
+- needs_dev: true if ANY dev-related plans selected (dev_architecture, api_design, database_design, infrastructure, security_plan, testing_strategy, monitoring_plan, performance_plan, data_architecture, integration_plan, deployment_plan, ci_cd_plan, disaster_recovery, auth_design, rate_limiting, cache_strategy, message_queue, event_driven, microservices, serverless, kubernetes, service_mesh, observability, logging_plan, tracing_plan, alerting_plan, cost_optimization, capacity_plan, chaos_engineering, compliance_plan, privacy_plan, ml_ops, data_pipeline, search_design, realtime_plan, websocket_plan, graphql_design, grpc_design, webhook_design, plugin_system, multi_tenant, feature_flags)
+- needs_design: true if ANY design-related plans selected (design_system, user_research, accessibility_plan, mobile_strategy, frontend_architecture, component_library, state_management)
+- needs_tasks: true if task_breakdown selected
+- needs_control: true if delivery_review selected
 
 EXAMPLES:
-- Design-only request (branding, marketing assets, UI mockups): needs_dev=false, needs_design=true, needs_tasks=false, needs_control=false
-- Backend API request (microservices, database, auth): needs_dev=true, needs_design=false, needs_tasks=true, needs_control=true
-- Full product build (app with frontend + backend): needs_dev=true, needs_design=true, needs_tasks=true, needs_control=true
-- Technical spec only: needs_dev=true, needs_design=false, needs_tasks=true, needs_control=true
+- Design-only request (branding, marketing assets, UI mockups): needs_dev=false, needs_design=true (design_system, component_library), needs_tasks=false, needs_control=false, selected_plans=["design_system", "component_library"]
+- Backend API request (microservices, database, auth): needs_dev=true (dev_architecture, api_design, database_design, auth_design), needs_design=false, needs_tasks=true, needs_control=true, selected_plans=["dev_architecture", "api_design", "database_design", "auth_design", "task_breakdown", "delivery_review"]
+- Full product build (app with frontend + backend): needs_dev=true (dev_architecture, api_design, database_design, infrastructure, security_plan, testing_strategy, monitoring_plan), needs_design=true (design_system, user_research, accessibility_plan, frontend_architecture), needs_tasks=true, needs_control=true, selected_plans=[...many...]
+- Technical spec only: needs_dev=true (dev_architecture, api_design), needs_design=false, needs_tasks=true, needs_control=true
 
-Output a single valid json object with: needs_dev, needs_design, needs_tasks, needs_control, reasoning."""
+Output a single valid json object with: needs_dev, needs_design, needs_tasks, needs_control, reasoning, selected_plans (array of plan IDs from the catalog above). The selected_plans array MUST NOT be empty — always include at minimum ["dev_architecture", "task_breakdown", "delivery_review"]."""
 
 
 class PlanType(BaseModel):
@@ -164,6 +282,14 @@ class PlanType(BaseModel):
     needs_tasks: bool
     needs_control: bool
     reasoning: str
+    selected_plans: List[str] = Field(default_factory=list, description="List of plan type IDs from PLAN_TYPES to generate")
+
+
+class PlanThinking(BaseModel):
+    plan_id: str
+    plan_name: str
+    thinking: str
+    confidence: str
 
 
 class PipelineState(TypedDict):
@@ -222,62 +348,63 @@ async def run_pipeline(cleaned_input: str) -> dict:
         ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
     ])
 
-    if state["plan_type"].needs_dev:
-        state["dev_plan"] = await dev_chain.ainvoke([
-            ("system", DEV_PROMPT),
-            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
-        ])
+    selected = state["plan_type"].selected_plans or []
 
-    if state["plan_type"].needs_design:
-        state["design_plan"] = await design_chain.ainvoke([
-            ("system", DESIGN_PROMPT),
-            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
-        ])
+    if not selected:
+        selected = ["dev_architecture", "task_breakdown", "delivery_review"]
+        state["plan_type"].selected_plans = selected
+        state["plan_type"].needs_dev = True
+        state["plan_type"].needs_tasks = True
+        state["plan_type"].needs_control = True
 
-    if state["plan_type"].needs_tasks:
+    plan_results = {}
+
+    for plan_id in selected:
+        if plan_id in ("understanding", "classifier"):
+            continue
+        plan_info = next((p for p in PLAN_TYPES if p[0] == plan_id), None)
+        if not plan_info:
+            continue
+        plan_name, _, role = plan_info
+        thinking_chain = llm.with_structured_output(PlanThinking, method="json_mode")
+        thinking = await thinking_chain.ainvoke([
+            ("system", f"You are a {role}. Before generating the {plan_name}, explain your reasoning, approach, and key considerations for this specific project. Output must be a single valid json object with: plan_id, plan_name, thinking, confidence (use 'High', 'Medium', or 'Low')."),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}\n\nPlan: {plan_name}"),
+        ])
+        plan_results[f"{plan_id}_thinking"] = thinking
+
+    for plan_id in selected:
+        if plan_id in ("understanding", "classifier"):
+            continue
+        plan_info = next((p for p in PLAN_TYPES if p[0] == plan_id), None)
+        if not plan_info:
+            continue
+        plan_name, _, role = plan_info
+        plan_chain = llm.with_structured_output(Any, method="json_mode")
         ctx = _context(state)
         combined = (
-            f"Understanding:\n{ctx['understanding']}\n\n"
-            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
-            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
-            f"Original:\n{cleaned_input}"
-        )
-        state["task_graph"] = await task_chain.ainvoke([
-            ("system", TASK_PROMPT),
-            ("human", combined),
-        ])
-
-    if state["plan_type"].needs_control:
-        ctx = _context(state)
-        final_combined = (
             f"Understanding:\n{ctx['understanding']}\n\n"
             f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
             f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
             f"Task Graph:\n{ctx.get('task_graph') or 'N/A'}\n\n"
             f"Original:\n{cleaned_input}"
         )
-        state["control_layer"] = await control_chain.ainvoke([
-            ("system", CONTROL_PROMPT),
-            ("human", final_combined),
+        raw = await plan_chain.ainvoke([
+            ("system", f"You are a {role}. Generate a detailed {plan_name} for this project. Output must be a single valid json object."),
+            ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}\n\nPlan: {plan_name}"),
         ])
+        plan_results[plan_id] = raw if isinstance(raw, dict) else (raw.model_dump() if hasattr(raw, "model_dump") else str(raw))
 
     return {
         "understanding": _serialize(state.get("understanding")),
         "plan_type": _serialize(state.get("plan_type")),
-        "dev_plan": _serialize(state.get("dev_plan")),
-        "design_plan": _serialize(state.get("design_plan")),
-        "task_graph": _serialize(state.get("task_graph")),
-        "control_layer": _serialize(state.get("control_layer")),
+        "plan_results": plan_results,
     }
 
 
 async def stream_pipeline(cleaned_input: str) -> AsyncGenerator[dict, None]:
     llm = build_llm()
     understanding_chain = llm.with_structured_output(Understanding, method="json_mode")
-    dev_chain = llm.with_structured_output(DevPlan, method="json_mode")
-    design_chain = llm.with_structured_output(DesignPlan, method="json_mode")
-    task_chain = llm.with_structured_output(TaskGraph, method="json_mode")
-    control_chain = llm.with_structured_output(ControlLayer, method="json_mode")
     classifier_chain = llm.with_structured_output(PlanType, method="json_mode")
 
     state: PipelineState = {
@@ -304,61 +431,56 @@ async def stream_pipeline(cleaned_input: str) -> AsyncGenerator[dict, None]:
     ])
     yield {"event": "agent_complete", "agent": "classifier"}
 
-    if state["plan_type"].needs_dev:
-        yield {"event": "agent_start", "agent": "dev_breakdown"}
-        state["dev_plan"] = await dev_chain.ainvoke([
-            ("system", DEV_PROMPT),
-            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
-        ])
-        yield {"event": "agent_complete", "agent": "dev_breakdown"}
+    selected = state["plan_type"].selected_plans or []
 
-    if state["plan_type"].needs_design:
-        yield {"event": "agent_start", "agent": "design_breakdown"}
-        state["design_plan"] = await design_chain.ainvoke([
-            ("system", DESIGN_PROMPT),
-            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
-        ])
-        yield {"event": "agent_complete", "agent": "design_breakdown"}
+    if not selected:
+        selected = ["dev_architecture", "task_breakdown", "delivery_review"]
+        state["plan_type"].selected_plans = selected
+        state["plan_type"].needs_dev = True
+        state["plan_type"].needs_tasks = True
+        state["plan_type"].needs_control = True
 
-    if state["plan_type"].needs_tasks:
-        yield {"event": "agent_start", "agent": "task_graph"}
+    plan_results = {}
+
+    for plan_id in selected:
+        if plan_id in ("understanding", "classifier"):
+            continue
+        plan_info = next((p for p in PLAN_TYPES if p[0] == plan_id), None)
+        if not plan_info:
+            continue
+        plan_name, _, role = plan_info
+        yield {"event": "thinking_start", "agent": plan_id, "plan_name": plan_name, "role": role}
+        thinking_chain = llm.with_structured_output(PlanThinking, method="json_mode")
+        thinking = await thinking_chain.ainvoke([
+            ("system", f"You are a {role}. Before generating the {plan_name}, explain your reasoning, approach, and key considerations for this specific project. Output must be a single valid json object with: plan_id, plan_name, thinking, confidence (use 'High', 'Medium', or 'Low')."),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}\n\nPlan: {plan_name}"),
+        ])
+        plan_results[f"{plan_id}_thinking"] = thinking
+        yield {"event": "thinking_complete", "agent": plan_id, "thinking": thinking.thinking, "confidence": thinking.confidence}
+
+    for plan_id in selected:
+        if plan_id in ("understanding", "classifier"):
+            continue
+        plan_info = next((p for p in PLAN_TYPES if p[0] == plan_id), None)
+        if not plan_info:
+            continue
+        plan_name, _, role = plan_info
+        yield {"event": "agent_start", "agent": plan_id, "plan_name": plan_name}
+        plan_chain = llm.with_structured_output(Any, method="json_mode")
         ctx = _context(state)
-        combined = (
-            f"Understanding:\n{ctx['understanding']}\n\n"
-            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
-            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
-            f"Original:\n{cleaned_input}"
-        )
-        state["task_graph"] = await task_chain.ainvoke([
-            ("system", TASK_PROMPT),
-            ("human", combined),
+        raw = await plan_chain.ainvoke([
+            ("system", f"You are a {role}. Generate a detailed {plan_name} for this project. Output must be a single valid json object."),
+            ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}\n\nPlan: {plan_name}"),
         ])
-        yield {"event": "agent_complete", "agent": "task_graph"}
-
-    if state["plan_type"].needs_control:
-        yield {"event": "agent_start", "agent": "control_layer"}
-        ctx = _context(state)
-        final_combined = (
-            f"Understanding:\n{ctx['understanding']}\n\n"
-            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
-            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
-            f"Task Graph:\n{ctx.get('task_graph') or 'N/A'}\n\n"
-            f"Original:\n{cleaned_input}"
-        )
-        state["control_layer"] = await control_chain.ainvoke([
-            ("system", CONTROL_PROMPT),
-            ("human", final_combined),
-        ])
-        yield {"event": "agent_complete", "agent": "control_layer"}
+        result = raw if isinstance(raw, dict) else (raw.model_dump() if hasattr(raw, "model_dump") else str(raw))
+        plan_results[plan_id] = result
+        yield {"event": "agent_complete", "agent": plan_id, "plan_name": plan_name, "result": result}
 
     yield {
         "event": "complete",
         "workspace": {
             "understanding": _serialize(state.get("understanding")),
             "plan_type": _serialize(state.get("plan_type")),
-            "dev_plan": _serialize(state.get("dev_plan")),
-            "design_plan": _serialize(state.get("design_plan")),
-            "task_graph": _serialize(state.get("task_graph")),
-            "control_layer": _serialize(state.get("control_layer")),
+            "plan_results": plan_results,
         },
     }
