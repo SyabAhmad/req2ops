@@ -307,7 +307,7 @@ export default function GenericPlanView({ data, planId }) {
             )
           }
           return (
-            <div key={i} className="py-4 border-b border-gray-100 last:border-0">
+            <div key={i} className="pdf-plan-section py-4 border-b border-gray-100 last:border-0">
               <H2>{titleCase(key)}</H2>
               {renderSection(key, val)}
             </div>
