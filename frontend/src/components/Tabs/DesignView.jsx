@@ -1,4 +1,4 @@
-import { txt, map, List, Section, ComponentStates, FlowSteps, ObjectList } from '../../utils/safe'
+import { txt, map, List, Section, ComponentStates, FlowSteps, ObjectList, FlowPath } from '../../utils/safe'
 
 export default function DesignView({ data }) {
   if (!data) return <EmptyState />
@@ -69,9 +69,9 @@ export default function DesignView({ data }) {
               <p className="text-sm font-medium text-gray-900">{txt(f.flow_name)}</p>
               {f.entry_point && <p className="text-xs text-gray-400 mt-0.5">Entry: {txt(f.entry_point)}</p>}
               <FlowSteps items={f.steps} />
-              <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
-                {f.success_path && <span className="text-green-600 font-medium">Success: {txt(f.success_path)}</span>}
-                {f.error_path && <span className="text-red-500 font-medium">Error: {txt(f.error_path)}</span>}
+              <div className="mt-2 space-y-3">
+                <FlowPath items={f.success_path} label="Success Path" />
+                <FlowPath items={f.error_path} label="Error Path" />
               </div>
             </div>
           ))}

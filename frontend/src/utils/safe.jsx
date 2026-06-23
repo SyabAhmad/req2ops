@@ -78,3 +78,20 @@ export function FlowSteps({ items }) {
     </li>
   ))}</ol>
 }
+
+export function FlowPath({ items, label }) {
+  if (!isArr(items) || !items.length) return null
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+      <ol className="space-y-0.5 text-xs">
+        {items.map((step, j) => (
+          <li key={step.step || j} className="flex items-start gap-2 text-gray-600">
+            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-400">{step.step || j + 1}</span>
+            <span>{txt(step.description || step)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
