@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.3
 
     # Upload
-    allowed_file_extensions: str = ".pdf,.txt,.mp3,.wav,.m4a,.png,.jpg,.jpeg,.gif,.webp"
+    allowed_file_extensions: str = ".pdf,.txt,.docx,.doc,.csv,.xlsx,.xls,.mp3,.wav,.m4a,.aac,.ogg,.flac,.webm,.mp4,.mkv,.avi,.mov,.png,.jpg,.jpeg,.gif,.webp"
     max_file_size_mb: int = 10
 
     model_config = {"env_file_encoding": "utf-8"}

@@ -1,29 +1,41 @@
 import { useState, useRef, useCallback } from 'react'
 
-const ACCEPT_TYPES = import.meta.env.VITE_UPLOAD_ACCEPT || '.pdf,.txt,.mp3,.wav,.m4a,.png,.jpg,.jpeg'
+const ACCEPT_TYPES = import.meta.env.VITE_UPLOAD_ACCEPT || '.pdf,.txt,.docx,.doc,.csv,.xlsx,.xls,.mp3,.wav,.m4a,.aac,.ogg,.flac,.webm,.mp4,.mkv,.avi,.mov,.png,.jpg,.jpeg,.gif,.webp'
 const PLACEHOLDER_TEXT = import.meta.env.VITE_UPLOAD_PLACEHOLDER || 'Paste client requirements, email, WhatsApp notes here...'
 const BTN_LABEL = import.meta.env.VITE_UPLOAD_BTN_LABEL || 'Generate Execution Plan'
-
-const FILE_ICONS = {
-  pdf: '📄',
-  audio: '🎤',
-  image: '🖼️',
-  text: '📝',
-}
 
 function getFileType(name) {
   const ext = name.split('.').pop().toLowerCase()
   if (['pdf'].includes(ext)) return 'pdf'
-  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'wma'].includes(ext)) return 'audio'
+  if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'wma', 'flac', 'webm'].includes(ext)) return 'audio'
+  if (['mp4', 'mkv', 'avi', 'mov', 'flv', 'wmv'].includes(ext)) return 'video'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image'
-  if (['txt', 'md', 'doc', 'docx', 'csv', 'json', 'xml'].includes(ext)) return 'text'
+  if (['docx', 'doc'].includes(ext)) return 'docx'
+  if (['csv', 'tsv'].includes(ext)) return 'csv'
+  if (['xlsx', 'xls'].includes(ext)) return 'xlsx'
+  if (['txt', 'md', 'json', 'xml'].includes(ext)) return 'text'
   return 'text'
+}
+
+const FILE_ICONS = {
+  pdf: '📄',
+  audio: '🎤',
+  video: '🎬',
+  image: '🖼️',
+  docx: '📝',
+  csv: '📊',
+  xlsx: '📈',
+  text: '📝',
 }
 
 const FILE_LABELS = {
   pdf: 'Document',
   audio: 'Audio',
+  video: 'Video',
   image: 'Image',
+  docx: 'Word',
+  csv: 'CSV',
+  xlsx: 'Excel',
   text: 'Text',
 }
 
@@ -97,13 +109,14 @@ export default function UploadForm({ onSubmit, loading }) {
           <div className="flex justify-center gap-3 mb-4">
             <span className="text-2xl">📄</span>
             <span className="text-2xl">🎤</span>
+            <span className="text-2xl">🎬</span>
             <span className="text-2xl">🖼️</span>
           </div>
           <p className="text-sm font-medium text-gray-700">
             Drop files here or click to browse
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            PDF, images, audio recordings, text files — upload everything at once
+            PDF, Word, Excel, CSV, images, audio, videos, text — upload everything at once
           </p>
         </div>
         <input

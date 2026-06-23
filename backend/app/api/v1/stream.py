@@ -21,19 +21,23 @@ def _safe(obj):
     return obj
 
 
-async def _parse_input(text: str | None, files: list[UploadFile] | None) -> str:
-    parser = ParserService()
-    combined = ""
-    if text:
-        combined += parser.parse_text(text) + "\n"
-    if files:
-        for f in files:
-            raw = await parser.parse_file(f)
-            if raw:
-                combined += raw + "\n"
-    if not combined.strip():
-        raise HTTPException(status_code=400, detail="Provide text or at least one file")
-    return combined.strip()
+def _file_type_label(filename: str) -> str:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    labels = {
+        "pdf": "PDF Document",
+        "mp3": "Audio Recording", "wav": "Audio Recording", "m4a": "Audio Recording",
+        "aac": "Audio Recording", "ogg": "Audio Recording", "flac": "Audio Recording",
+        "webm": "Audio Recording",
+        "mp4": "Video File", "mkv": "Video File", "avi": "Video File",
+        "mov": "Video File",
+        "png": "Image", "jpg": "Image", "jpeg": "Image",
+        "gif": "Image", "webp": "Image",
+        "docx": "Word Document", "doc": "Word Document",
+        "csv": "CSV Spreadsheet", "tsv": "CSV Spreadsheet",
+        "xlsx": "Excel Spreadsheet", "xls": "Excel Spreadsheet",
+        "txt": "Text File", "md": "Text File",
+    }
+    return labels.get(ext, "File")
 
 
 @router.post("/upload/stream")
@@ -41,12 +45,38 @@ async def upload_stream(
     text: str = Form(None),
     files: list[UploadFile] = File(None),
 ):
-    combined = await _parse_input(text, files)
-
     async def event_stream():
+        parser = ParserService()
+        combined = ""
+
+        if text:
+            combined += parser.parse_text(text) + "\n"
+
+        if files:
+            file_events = []
+            for f in files:
+                fname = f.filename or "unknown"
+                file_type = _file_type_label(fname)
+                file_events.append({"name": fname, "type": file_type})
+
+            yield f"event: files_detected\ndata: {json.dumps({'files': file_events})}\n\n"
+
+            for f in files:
+                fname = f.filename or "unknown"
+                file_type = _file_type_label(fname)
+                yield f"event: file_start\ndata: {json.dumps({'name': fname, 'file_type': file_type})}\n\n"
+                raw = await parser.parse_file(f)
+                if raw:
+                    combined += raw + "\n"
+                yield f"event: file_complete\ndata: {json.dumps({'name': fname, 'file_type': file_type})}\n\n"
+
+        if not combined.strip():
+            yield f"event: error\ndata: {json.dumps({'message': 'Provide text or at least one file'})}\n\n"
+            return
+
         yield f"event: meta\ndata: {json.dumps({'agents': AGENTS_META})}\n\n"
-        async for event in stream_pipeline(combined):
-            yield f"event: {event['event']}\ndata: {json.dumps(_safe(event))}\n\n"
+        async for ev in stream_pipeline(combined.strip()):
+            yield f"event: {ev['event']}\ndata: {json.dumps(_safe(ev))}\n\n"
 
     return StreamingResponse(
         event_stream(),

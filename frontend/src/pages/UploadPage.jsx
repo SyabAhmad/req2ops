@@ -9,7 +9,7 @@ export default function UploadPage({ onSubmit, loading }) {
             Upload everything at once
           </h2>
           <p className="mt-2 text-sm text-gray-500 max-w-lg mx-auto">
-            Paste text, drop PDFs, audio recordings, screenshots, or notes. Req2Ops handles each type automatically — transcribes, extracts, and structures it all into one execution plan.
+            Paste text, drop PDFs, Word docs, Excel sheets, audio recordings, videos, screenshots, or notes. Req2Ops handles each type automatically — transcribes, extracts, and structures it all into one execution plan.
           </p>
         </div>
         <UploadForm onSubmit={onSubmit} loading={loading} />
