@@ -3,6 +3,7 @@ import { uploadRequirementStream } from '../api/client.js'
 
 const INITIAL_AGENTS = [
   { id: 'understanding', label: 'Understanding Requirements', role: 'Senior Requirements Analyst', status: 'pending' },
+  { id: 'classifier', label: 'Plan Classifier', role: 'Planning Classifier', status: 'pending' },
   { id: 'dev_breakdown', label: 'Dev Architecture', role: 'Senior Software Architect', status: 'pending' },
   { id: 'design_breakdown', label: 'Design Planning', role: 'Senior UI/UX Designer', status: 'pending' },
   { id: 'task_graph', label: 'Task Breakdown', role: 'Technical Project Manager', status: 'pending' },
@@ -29,7 +30,18 @@ export default function ProcessingStatus({ input, files, onComplete, onError }) 
         }
       },
       onComplete(data) {
-        setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
+        const plan = data.workspace?.plan_type
+        if (plan) {
+          setAgents(prev => prev.map(a => {
+            if (a.id === 'dev_breakdown' && !plan.needs_dev) return { ...a, status: 'skipped' }
+            if (a.id === 'design_breakdown' && !plan.needs_design) return { ...a, status: 'skipped' }
+            if (a.id === 'task_graph' && !plan.needs_tasks) return { ...a, status: 'skipped' }
+            if (a.id === 'control_layer' && !plan.needs_control) return { ...a, status: 'skipped' }
+            return { ...a, status: 'done' }
+          }))
+        } else {
+          setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
+        }
         onComplete?.(data)
       },
       onError(err) {
@@ -85,6 +97,12 @@ function AgentRow({ agent, isActive }) {
             </svg>
           </span>
         )
+      case 'skipped':
+        return (
+          <span className="flex h-5 w-5 items-center justify-center">
+            <span className="h-2 w-2 rounded-full bg-gray-300" />
+          </span>
+        )
       default:
         return (
           <span className="flex h-5 w-5 items-center justify-center">
@@ -100,16 +118,20 @@ function AgentRow({ agent, isActive }) {
         ? 'border-blue-200 bg-blue-50'
         : agent.status === 'done'
           ? 'border-green-100 bg-green-50/50'
-          : 'border-gray-200 bg-white'
+          : agent.status === 'skipped'
+            ? 'border-gray-100 bg-gray-50 opacity-60'
+            : 'border-gray-200 bg-white'
     }`}>
       {statusIcon()}
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${
-          agent.status === 'done' ? 'text-green-700' : 'text-gray-900'
+          agent.status === 'done' ? 'text-green-700' : agent.status === 'skipped' ? 'text-gray-400' : 'text-gray-900'
         }`}>
           {agent.label}
         </p>
-        <p className="text-xs text-gray-400 truncate">{agent.role}</p>
+        <p className="text-xs text-gray-400 truncate">
+          {agent.status === 'skipped' ? 'Not needed for this project' : agent.role}
+        </p>
       </div>
     </div>
   )

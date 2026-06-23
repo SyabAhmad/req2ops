@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, AsyncGenerator
+from typing import Optional, TypedDict, AsyncGenerator, List
 from langgraph.graph import StateGraph
 from app.engine.crew.agents import build_llm
 from app.schemas.understanding import Understanding
@@ -6,9 +6,11 @@ from app.schemas.dev_plan import DevPlan
 from app.schemas.design_plan import DesignPlan
 from app.schemas.task_graph import TaskGraph
 from app.schemas.control_layer import ControlLayer
+from pydantic import BaseModel
 
 AGENTS_META = [
     ("understanding", "Understanding Requirements", "Senior Requirements Analyst"),
+    ("classifier", "Plan Classifier", "Planning Classifier"),
     ("dev_breakdown", "Dev Architecture", "Senior Software Architect"),
     ("design_breakdown", "Design Planning", "Senior UI/UX Designer"),
     ("task_graph", "Task Breakdown", "Technical Project Manager"),
@@ -139,10 +141,35 @@ GOOD output (specific, actionable):
 
 Produce EXCELLENT output. Be thorough. A good delivery review should uncover issues that would otherwise surface mid-sprint. Output must be a single valid json object (NOT an array)."""
 
+CLASSIFIER_PROMPT = """You are a Planning Classifier. Based on the requirements analysis, determine which downstream plans are needed.
+
+RULES:
+- needs_dev: true if the project requires software architecture, APIs, database, backend services, infrastructure
+- needs_design: true if the project requires UI/UX design, screens, user flows, design system, accessibility
+- needs_tasks: true if the project needs a task breakdown with phases, milestones, detailed tasks (usually if dev OR design is true)
+- needs_control: true if the project needs risk analysis, decisions log, next actions, delivery review (usually if tasks is true)
+
+EXAMPLES:
+- Design-only request (branding, marketing assets, UI mockups): needs_dev=false, needs_design=true, needs_tasks=false, needs_control=false
+- Backend API request (microservices, database, auth): needs_dev=true, needs_design=false, needs_tasks=true, needs_control=true
+- Full product build (app with frontend + backend): needs_dev=true, needs_design=true, needs_tasks=true, needs_control=true
+- Technical spec only: needs_dev=true, needs_design=false, needs_tasks=true, needs_control=true
+
+Output a single valid json object with: needs_dev, needs_design, needs_tasks, needs_control, reasoning."""
+
+
+class PlanType(BaseModel):
+    needs_dev: bool
+    needs_design: bool
+    needs_tasks: bool
+    needs_control: bool
+    reasoning: str
+
 
 class PipelineState(TypedDict):
     input: str
     understanding: Optional[Understanding]
+    plan_type: Optional[PlanType]
     dev_plan: Optional[DevPlan]
     design_plan: Optional[DesignPlan]
     task_graph: Optional[TaskGraph]
@@ -173,10 +200,12 @@ async def run_pipeline(cleaned_input: str) -> dict:
     design_chain = llm.with_structured_output(DesignPlan, method="json_mode")
     task_chain = llm.with_structured_output(TaskGraph, method="json_mode")
     control_chain = llm.with_structured_output(ControlLayer, method="json_mode")
+    classifier_chain = llm.with_structured_output(PlanType, method="json_mode")
 
     state: PipelineState = {
         "input": cleaned_input,
         "understanding": None,
+        "plan_type": None,
         "dev_plan": None,
         "design_plan": None,
         "task_graph": None,
@@ -187,43 +216,54 @@ async def run_pipeline(cleaned_input: str) -> dict:
         ("system", UNDERSTANDING_PROMPT),
         ("human", cleaned_input),
     ])
-    ctx = _context(state)
-    dev_future = dev_chain.ainvoke([
-        ("system", DEV_PROMPT),
-        ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}"),
+
+    state["plan_type"] = await classifier_chain.ainvoke([
+        ("system", CLASSIFIER_PROMPT),
+        ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
     ])
-    design_future = design_chain.ainvoke([
-        ("system", DESIGN_PROMPT),
-        ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}"),
-    ])
-    import asyncio
-    state["dev_plan"], state["design_plan"] = await asyncio.gather(dev_future, design_future)
-    ctx = _context(state)
-    combined = (
-        f"Understanding:\n{ctx['understanding']}\n\n"
-        f"Dev Plan:\n{ctx['dev_plan']}\n\n"
-        f"Design Plan:\n{ctx['design_plan']}\n\n"
-        f"Original:\n{cleaned_input}"
-    )
-    state["task_graph"] = await task_chain.ainvoke([
-        ("system", TASK_PROMPT),
-        ("human", combined),
-    ])
-    ctx = _context(state)
-    final_combined = (
-        f"Understanding:\n{ctx['understanding']}\n\n"
-        f"Dev Plan:\n{ctx['dev_plan']}\n\n"
-        f"Design Plan:\n{ctx['design_plan']}\n\n"
-        f"Task Graph:\n{ctx['task_graph']}\n\n"
-        f"Original:\n{cleaned_input}"
-    )
-    state["control_layer"] = await control_chain.ainvoke([
-        ("system", CONTROL_PROMPT),
-        ("human", final_combined),
-    ])
+
+    if state["plan_type"].needs_dev:
+        state["dev_plan"] = await dev_chain.ainvoke([
+            ("system", DEV_PROMPT),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
+        ])
+
+    if state["plan_type"].needs_design:
+        state["design_plan"] = await design_chain.ainvoke([
+            ("system", DESIGN_PROMPT),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
+        ])
+
+    if state["plan_type"].needs_tasks:
+        ctx = _context(state)
+        combined = (
+            f"Understanding:\n{ctx['understanding']}\n\n"
+            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
+            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
+            f"Original:\n{cleaned_input}"
+        )
+        state["task_graph"] = await task_chain.ainvoke([
+            ("system", TASK_PROMPT),
+            ("human", combined),
+        ])
+
+    if state["plan_type"].needs_control:
+        ctx = _context(state)
+        final_combined = (
+            f"Understanding:\n{ctx['understanding']}\n\n"
+            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
+            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
+            f"Task Graph:\n{ctx.get('task_graph') or 'N/A'}\n\n"
+            f"Original:\n{cleaned_input}"
+        )
+        state["control_layer"] = await control_chain.ainvoke([
+            ("system", CONTROL_PROMPT),
+            ("human", final_combined),
+        ])
 
     return {
         "understanding": _serialize(state.get("understanding")),
+        "plan_type": _serialize(state.get("plan_type")),
         "dev_plan": _serialize(state.get("dev_plan")),
         "design_plan": _serialize(state.get("design_plan")),
         "task_graph": _serialize(state.get("task_graph")),
@@ -238,10 +278,12 @@ async def stream_pipeline(cleaned_input: str) -> AsyncGenerator[dict, None]:
     design_chain = llm.with_structured_output(DesignPlan, method="json_mode")
     task_chain = llm.with_structured_output(TaskGraph, method="json_mode")
     control_chain = llm.with_structured_output(ControlLayer, method="json_mode")
+    classifier_chain = llm.with_structured_output(PlanType, method="json_mode")
 
     state: PipelineState = {
         "input": cleaned_input,
         "understanding": None,
+        "plan_type": None,
         "dev_plan": None,
         "design_plan": None,
         "task_graph": None,
@@ -255,55 +297,65 @@ async def stream_pipeline(cleaned_input: str) -> AsyncGenerator[dict, None]:
     ])
     yield {"event": "agent_complete", "agent": "understanding"}
 
-    yield {"event": "agent_start", "agent": "dev_breakdown"}
-    yield {"event": "agent_start", "agent": "design_breakdown"}
-    ctx = _context(state)
-    dev_future = dev_chain.ainvoke([
-        ("system", DEV_PROMPT),
-        ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}"),
+    yield {"event": "agent_start", "agent": "classifier"}
+    state["plan_type"] = await classifier_chain.ainvoke([
+        ("system", CLASSIFIER_PROMPT),
+        ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
     ])
-    design_future = design_chain.ainvoke([
-        ("system", DESIGN_PROMPT),
-        ("human", f"Requirements Analysis:\n{ctx['understanding']}\n\nOriginal:\n{cleaned_input}"),
-    ])
-    import asyncio
-    state["dev_plan"], state["design_plan"] = await asyncio.gather(dev_future, design_future)
-    yield {"event": "agent_complete", "agent": "dev_breakdown"}
-    yield {"event": "agent_complete", "agent": "design_breakdown"}
+    yield {"event": "agent_complete", "agent": "classifier"}
 
-    yield {"event": "agent_start", "agent": "task_graph"}
-    ctx = _context(state)
-    combined = (
-        f"Understanding:\n{ctx['understanding']}\n\n"
-        f"Dev Plan:\n{ctx['dev_plan']}\n\n"
-        f"Design Plan:\n{ctx['design_plan']}\n\n"
-        f"Original:\n{cleaned_input}"
-    )
-    state["task_graph"] = await task_chain.ainvoke([
-        ("system", TASK_PROMPT),
-        ("human", combined),
-    ])
-    yield {"event": "agent_complete", "agent": "task_graph"}
+    if state["plan_type"].needs_dev:
+        yield {"event": "agent_start", "agent": "dev_breakdown"}
+        state["dev_plan"] = await dev_chain.ainvoke([
+            ("system", DEV_PROMPT),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
+        ])
+        yield {"event": "agent_complete", "agent": "dev_breakdown"}
 
-    yield {"event": "agent_start", "agent": "control_layer"}
-    ctx = _context(state)
-    final_combined = (
-        f"Understanding:\n{ctx['understanding']}\n\n"
-        f"Dev Plan:\n{ctx['dev_plan']}\n\n"
-        f"Design Plan:\n{ctx['design_plan']}\n\n"
-        f"Task Graph:\n{ctx['task_graph']}\n\n"
-        f"Original:\n{cleaned_input}"
-    )
-    state["control_layer"] = await control_chain.ainvoke([
-        ("system", CONTROL_PROMPT),
-        ("human", final_combined),
-    ])
-    yield {"event": "agent_complete", "agent": "control_layer"}
+    if state["plan_type"].needs_design:
+        yield {"event": "agent_start", "agent": "design_breakdown"}
+        state["design_plan"] = await design_chain.ainvoke([
+            ("system", DESIGN_PROMPT),
+            ("human", f"Requirements Analysis:\n{_context(state)['understanding']}\n\nOriginal:\n{cleaned_input}"),
+        ])
+        yield {"event": "agent_complete", "agent": "design_breakdown"}
+
+    if state["plan_type"].needs_tasks:
+        yield {"event": "agent_start", "agent": "task_graph"}
+        ctx = _context(state)
+        combined = (
+            f"Understanding:\n{ctx['understanding']}\n\n"
+            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
+            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
+            f"Original:\n{cleaned_input}"
+        )
+        state["task_graph"] = await task_chain.ainvoke([
+            ("system", TASK_PROMPT),
+            ("human", combined),
+        ])
+        yield {"event": "agent_complete", "agent": "task_graph"}
+
+    if state["plan_type"].needs_control:
+        yield {"event": "agent_start", "agent": "control_layer"}
+        ctx = _context(state)
+        final_combined = (
+            f"Understanding:\n{ctx['understanding']}\n\n"
+            f"Dev Plan:\n{ctx.get('dev_plan') or 'N/A'}\n\n"
+            f"Design Plan:\n{ctx.get('design_plan') or 'N/A'}\n\n"
+            f"Task Graph:\n{ctx.get('task_graph') or 'N/A'}\n\n"
+            f"Original:\n{cleaned_input}"
+        )
+        state["control_layer"] = await control_chain.ainvoke([
+            ("system", CONTROL_PROMPT),
+            ("human", final_combined),
+        ])
+        yield {"event": "agent_complete", "agent": "control_layer"}
 
     yield {
         "event": "complete",
         "workspace": {
             "understanding": _serialize(state.get("understanding")),
+            "plan_type": _serialize(state.get("plan_type")),
             "dev_plan": _serialize(state.get("dev_plan")),
             "design_plan": _serialize(state.get("design_plan")),
             "task_graph": _serialize(state.get("task_graph")),
