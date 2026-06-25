@@ -22,9 +22,8 @@ function makeAgent(planId, planName, role) {
   return { id: planId, label: planName, role, status: 'pending', thinking: null, thinkingDone: false }
 }
 
-export default function ProcessingStatus({ input, files, onComplete, onError }) {
+export default function ProcessingStatus({ input, files, onComplete, onError, onResult, onAgentStart }) {
   const [agents, setAgents] = useState(INITIAL_AGENTS)
-  const [completedResults, setCompletedResults] = useState({})
   const [fileList, setFileList] = useState([])
   const cancelRef = useRef(null)
 
@@ -53,12 +52,21 @@ export default function ProcessingStatus({ input, files, onComplete, onError }) 
           setAgents(prev => prev.map(a =>
             a.id === event.data.agent ? { ...a, status: 'active', plan_name: event.data.plan_name || a.label } : a
           ))
+          onAgentStart?.({
+            id: event.data.agent,
+            name: event.data.plan_name || event.data.agent,
+          })
         } else if (ev === 'agent_complete') {
           setAgents(prev => prev.map(a =>
             a.id === event.data.agent ? { ...a, status: 'done' } : a
           ))
           if (event.data.result) {
-            setCompletedResults(prev => ({ ...prev, [event.data.agent]: event.data.result }))
+            onResult?.({
+              agent: event.data.agent,
+              planName: event.data.plan_name,
+              result: event.data.result,
+              timestamp: Date.now(),
+            })
           }
         } else if (ev === 'thinking_start') {
           setAgents(prev => {

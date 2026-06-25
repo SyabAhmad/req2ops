@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import ProcessingStatus from '../components/ProcessingStatus.jsx'
+import LivePreviewPanel from '../components/LivePreviewPanel.jsx'
 
 const FLOATING_WORDS = [
   { text: 'Architecture', x: 5, y: 5 },
@@ -83,6 +84,8 @@ function FloatingWord({ text, x, y, delay }) {
 
 export default function ProcessingPage({ input, files, onComplete, onError }) {
   const [progress, setProgress] = useState(0)
+  const [completedResults, setCompletedResults] = useState([])
+  const [activeAgents, setActiveAgents] = useState([])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -91,8 +94,20 @@ export default function ProcessingPage({ input, files, onComplete, onError }) {
     return () => clearInterval(interval)
   }, [])
 
+  const handleResult = (result) => {
+    setCompletedResults(prev => [...prev, result])
+    setActiveAgents(prev => prev.filter(a => a.id !== result.agent))
+  }
+
+  const handleAgentStart = (agent) => {
+    setActiveAgents(prev => {
+      if (prev.find(a => a.id === agent.id)) return prev
+      return [...prev, agent]
+    })
+  }
+
   return (
-    <div className="relative min-h-[calc(100vh-8rem)] flex items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.03)_0%,transparent_70%)]">
+    <div className="relative min-h-[calc(100vh-8rem)] overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.03)_0%,transparent_70%)]">
       {/* Floating background words */}
       {FLOATING_WORDS.map((word, i) => (
         <FloatingWord
@@ -104,10 +119,10 @@ export default function ProcessingPage({ input, files, onComplete, onError }) {
         />
       ))}
 
-      {/* Center panel */}
-      <div className="relative z-10 w-full max-w-lg mx-auto px-4">
+      {/* Two-column layout */}
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 lg:px-8">
         {/* Progress bar */}
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full bg-gray-900 rounded-full transition-all duration-700 ease-out"
@@ -117,7 +132,38 @@ export default function ProcessingPage({ input, files, onComplete, onError }) {
           <p className="mt-2 text-right text-[11px] text-gray-400 tabular-nums">{Math.round(progress)}%</p>
         </div>
 
-        <ProcessingStatus input={input} files={files} onComplete={onComplete} onError={onError} />
+        <div className="flex gap-6 lg:gap-8">
+          {/* Left: Processing Status */}
+          <div className="flex-1 min-w-0 lg:max-w-md">
+            <ProcessingStatus
+              input={input}
+              files={files}
+              onComplete={onComplete}
+              onError={onError}
+              onResult={handleResult}
+              onAgentStart={handleAgentStart}
+            />
+          </div>
+
+          {/* Right: Live Preview Panel */}
+          <div className="flex-1 min-w-0 hidden lg:block">
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-[0_0_60px_-12px_rgba(0,0,0,0.12)] h-[calc(100vh-12rem)] overflow-hidden">
+              <div className="border-b border-gray-100 px-5 py-3">
+                <h3 className="text-sm font-semibold text-gray-900">Live Preview</h3>
+                <p className="text-[11px] text-gray-400">
+                  {completedResults.length > 0
+                    ? `${completedResults.length} plan${completedResults.length > 1 ? 's' : ''} generated`
+                    : 'Waiting for results...'
+                  }
+                </p>
+              </div>
+              <LivePreviewPanel
+                results={completedResults}
+                activeAgents={activeAgents}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
